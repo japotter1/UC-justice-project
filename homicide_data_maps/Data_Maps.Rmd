@@ -30,7 +30,7 @@ library(sfdep)
 
 ## Loading Data
 
-The homicide and geographic boundary data are loaded in. Note that 58 homicide data points had no geography associated with them and thus had to be dropped for spatial analysis.
+The homicide and geographic boundary data are loaded in. Note that 83 homicide data points had no geography associated with them and thus had to be dropped for spatial analysis. An additional 6 data points had no date, and had to be dropped as well.
 
 ```{r load_data, results=FALSE, message=FALSE, warning=FALSE}
 # Load in homicide data and remove entries with missing geometry (n=83) and missing date (n=6)
