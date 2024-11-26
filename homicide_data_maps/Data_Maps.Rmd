@@ -1,7 +1,7 @@
 ---
 title: "Homicide Data Map Visualizations"
 author: "Jada Potter"
-date: "9/3/2024"
+date: "11/25/2024"
 output:
   html_document:
     toc: true
@@ -33,7 +33,9 @@ library(sfdep)
 The homicide and geographic boundary data are loaded in. Note that 58 homicide data points had no geography associated with them and thus had to be dropped for spatial analysis.
 
 ```{r load_data, results=FALSE, message=FALSE, warning=FALSE}
-homicides = read_sf("homicides_1940-1965_geocoded_v2/homicides_1940-1965_geocoded_v2.shp") %>% filter(!st_is_empty(.))
+# Load in homicide data and remove entries with missing geometry (n=83) and missing date (n=6)
+homicides = read_sf("homicides_1940-1965_geocoded_v3/homicides_1940-1965_geocoded_v3.shp") %>% filter(!st_is_empty(.)) %>% filter(date != "NaT")
+
 city_bounds = read_sf("Chicago_City_Limits-shp/Chicago_City_Limits.shp") %>% st_transform(st_crs(homicides))
 hexagons = read_sf("hexagons/hexagons.shp") %>% st_transform(st_crs(homicides))
 CAs = read_sf("Boundaries - Community Areas (current)/geo_export_e916a3b4-0ea3-4ca2-944a-cb060aacf705.shp") %>% st_transform(st_crs(homicides))
@@ -111,7 +113,7 @@ The same classification scheme is used for consistency, though it should be note
 First, homicide dates must be converted into date format. Then `SharedData` from crosstalk is used to link data between the slider and the map below:
 
 ```{r hom_shared_data, results=FALSE, message=FALSE, warning=FALSE}
-homicides_jitter$start = as.Date(homicides_jitter$date, format = "%m/%d/%Y")
+homicides_jitter$start = as.Date(homicides_jitter$date)
 shared_data = SharedData$new(homicides_jitter)
 ```
 
