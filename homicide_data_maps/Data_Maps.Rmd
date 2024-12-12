@@ -26,6 +26,7 @@ library(leaflet)
 library(leafgl)
 library(crosstalk)
 library(sfdep)
+library(ggplot2)
 ```
 
 ## Loading Data
@@ -264,7 +265,7 @@ leaflet(homicides_jitter) %>%
 
 **Preliminary findings:** Rather intuitively, the standard deviational ellipse encompasses the South and West Sides, with the Near North Side included as well. Future analysis could demonstrate the change of the ellipse's size and shape over time, which could demonstrate how the geographic distribution of homicides spread out in a more systematic way.
 
-# Part 2: Map Visualizations for Cook County Homicides, 1874-1930 and 1965-2020
+# Part 2: Map Visualizations for Cook County Homicides, 1874-1930 and 1965-2016
 
 ## Loading Data
 
@@ -277,7 +278,7 @@ pt2_hex_freq_table_yr = read.csv("homicides_1874-2020_hex/homicides_pre_1931_pos
 
 ## Choropleth Maps
 
-First, all homicides 1874-1930 and 1965-2020 are visualized using a simple choropleth map. Note that records between 1874-1930 include all homicides; records used in the above analysis of homicides between 1940-1964 only include murders, justifiable homicides, and cases in which the verdict is unclear; and records between 1965-2020 only include murders. Thus, the findings from each of these time periods are not directly comparable to each other.
+First, all homicides 1874-1930 and 1965-2020 are visualized using a simple choropleth map. Note that records between 1874-1930 include all homicides; records used in the above analysis of homicides between 1940-1964 only include murders, justifiable homicides, and cases in which the verdict is unclear; and records between 1965-2016 only include murders. Thus, the findings from each of these time periods are not directly comparable to each other.
 
 ```{r pt2_choropleth, results=FALSE, message=FALSE, warning=FALSE}
 # Separate data between 1874-1930 and between 1965-2020
@@ -307,7 +308,7 @@ The same custom classification scheme described above is used here for consisten
 
 ## Time Series Choropleth Map
 
-Next, time series animations like the ones shown above are created for hexagons between 1874-1930 and 1965-2020. A 5-year interval is used like before to reduce noise. Because of this, the years 1874, 1930, 2015, and 2016 will not be included, as they do not fit into any 5-year intervals.
+Next, time series animations like the ones shown above are created for hexagons between 1874-1930 and 1965-2016. A 5-year interval is used like before to reduce noise. Because of this, the years 1874, 1930, 2015, and 2016 will not be included, as they do not fit into any 5-year intervals.
 
 ```{r pt2_choropleth_time_series, results=FALSE, message=FALSE, warning=FALSE}
 # Create an expanded grid of hexagons that includes each hex/year combo
@@ -348,6 +349,38 @@ tmap_animation(pt2_map_list_after, "hex_map_list_after.gif", width = 400, height
 ```
 
 ![**Animation of Homicides per Hexagon by Year 1874-1930**](hex_map_list_before.gif)
-![**Animation of Homicides per Hexagon by Year 1965-2020**](hex_map_list_after.gif)
+![**Animation of Homicides per Hexagon by Year 1965-2014**](hex_map_list_after.gif)
 
 **Preliminary findings:** The two animations above further demonstrate the spreading-out of homicides over time that parallels the outward growth of the city. The first animation, including homicides from 1865 to 1930, begins with homicides almost entirely concentrated in the city center. By 1925-1929, however, homicides are just as concentrated in the Near West and Near South Sides as they are in the city center. The latter animation also shows a diffusion of homicides over time, though also shows a decrease in their overall concentration within the last two time periods. It also suggests that the shape of this distribution has fundamentally changed over the past few decades -- from a hub-and-spoke shape centered on the Loop and reaching into the South, West, and North Sides in the 1960s to two distinct regions on the West and South Sides and no central concentration in the Loop in the 2010s.
+
+## Time Series Choropleth Map - 1874-2014
+
+An animation of homicides per hexagon per 5-year interval for all time periods is created below.
+
+```{r pt2_hex_map_yr_animate_allYears, eval=FALSE, message=FALSE, warning=FALSE}
+tmap_animation(c(pt2_map_list_before, hex_map_list_5yr, pt2_map_list_after), "hex_map_list_all.gif", width = 400, height = 500, delay = 100)
+```
+
+![**Animation of Homicides per Hexagon by Year 1874-2014**](hex_map_list_all.gif)
+
+**Note:** As mentioned above, methodologies varied between the three time periods (all homicides were included in 1874-1930; only murders, justifiable homicides, and unclear verdicts in 1940-1964; and only murders in 1965-2016) and thus time periods should be compared with caution.
+
+# Part 3: Time Series Line Graph for Annexed and Non-Annexed Community Areas
+
+A time series line graph is made to show the total number of homicides per year in annexed and non-annexed Community Areas.
+
+```{r pt3_time_series_line_graph, results=FALSE, message=FALSE, warning=FALSE}
+annexed_CAs = read.csv("annexed/annexed.csv")
+
+annexed = CAs_hom_ct_yr %>% left_join(annexed_CAs, by="community") %>% mutate(annexed = ifelse(is.na(annexed), "Not Annexed", "Annexed")) %>% select(area_num_1, year, community, hom_ct, annexed) %>% st_drop_geometry()
+
+annexed_aggregated = aggregate(annexed$hom_ct, list(annexed$year, annexed$annexed), FUN = sum) %>% rename(year = Group.1, annexed = Group.2, hom_ct = x)
+
+# Line Graph
+ggplot(data = annexed_aggregated, aes(x = year, y = hom_ct, group = annexed)) +
+  geom_line(aes(color = annexed), size = 1) +
+  geom_point()
+
+```
+
+This will be more meaningful once building data are used as a denominator, after which a rate of homicides over building density will be used instead.
