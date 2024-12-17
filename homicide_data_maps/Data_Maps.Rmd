@@ -1,7 +1,7 @@
 ---
 title: "Homicide Data Map Visualizations"
 author: "Jada Potter"
-date: "12/3/2024"
+date: "12/16/2024"
 output:
   html_document:
     toc: true
@@ -35,11 +35,18 @@ The homicide and geographic boundary data are loaded in. Note that 83 homicide d
 
 ```{r load_data, results=FALSE, message=FALSE, warning=FALSE}
 # Load in homicide data and remove entries with missing geometry (n=83) and missing date (n=6)
-homicides = read_sf("homicides_1940-1965_geocoded_v3/homicides_1940-1965_geocoded_v3.shp") %>% filter(!st_is_empty(.)) %>% filter(date != "NaT")
+homicides = read_sf("homicides_1940-1965_geocoded_v3/homicides_1940-1965_geocoded_v3.shp") %>%
+  filter(!st_is_empty(.)) %>%
+  filter(date != "NaT")
 
-city_bounds = read_sf("Chicago_City_Limits-shp/Chicago_City_Limits.shp") %>% st_transform(st_crs(homicides))
-hexagons = read_sf("hexagons/hexagons.shp") %>% st_transform(st_crs(homicides))
-CAs = read_sf("Boundaries - Community Areas (current)/geo_export_e916a3b4-0ea3-4ca2-944a-cb060aacf705.shp") %>% st_transform(st_crs(homicides))
+city_bounds = read_sf("Chicago_City_Limits-shp/Chicago_City_Limits.shp") %>%
+  st_transform(st_crs(homicides))
+
+hexagons = read_sf("hexagons/hexagons.shp") %>%
+  st_transform(st_crs(homicides))
+
+CAs = read_sf("Boundaries - Community Areas (current)/geo_export_e916a3b4-0ea3-4ca2-944a-cb060aacf705.shp") %>%
+  st_transform(st_crs(homicides))
 ```
 
 ## Simple Placement Map
@@ -72,10 +79,13 @@ Spatial count of homicides per hexagon:
 homicides_hex_joined = st_join(homicides, hexagons, join = st_within)
 
 # Create table of frequency by hexagon
-hex_freq_table = as.data.frame(table(homicides_hex_joined$GRID_ID)) %>% rename(GRID_ID = Var1, hom_ct = Freq)
+hex_freq_table = as.data.frame(table(homicides_hex_joined$GRID_ID)) %>%
+  rename(GRID_ID = Var1, hom_ct = Freq)
 
 # Merge frequency table back into hexes
-hexagons_hom_ct = hexagons %>% left_join(hex_freq_table, by = "GRID_ID") %>% mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
+hexagons_hom_ct = hexagons %>%
+  left_join(hex_freq_table, by = "GRID_ID") %>%
+  mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
 ```
 
 Viewing the hexagons:
@@ -96,10 +106,13 @@ Spatial count of homicides per community area:
 homicides_CA_joined = st_join(homicides, CAs, join = st_within)
 
 # Create table of frequency by CA
-CA_freq_table = as.data.frame(table(homicides_CA_joined$area_num_1)) %>% rename(area_num_1 = Var1, hom_ct = Freq)
+CA_freq_table = as.data.frame(table(homicides_CA_joined$area_num_1)) %>%
+  rename(area_num_1 = Var1, hom_ct = Freq)
 
 # Merge frequency table back into CAs
-CAs_hom_ct = CAs %>% left_join(CA_freq_table, by = "area_num_1") %>% mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
+CAs_hom_ct = CAs %>%
+  left_join(CA_freq_table, by = "area_num_1") %>%
+  mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
 ```
 
 Viewing the community areas:
@@ -142,17 +155,22 @@ Spatial count of homicides per hexagon for each year:
 
 ```{r hexagons_spatial_count_yr, results=FALSE, message=FALSE, warning=FALSE}
 # Create table of frequency by hexagon and year
-hex_freq_table_yr = as.data.frame(table(homicides_hex_joined$GRID_ID, homicides_hex_joined$year)) %>% rename(GRID_ID = Var1, year = Var2, hom_ct = Freq)
+hex_freq_table_yr = as.data.frame(table(homicides_hex_joined$GRID_ID, homicides_hex_joined$year)) %>%
+ rename(GRID_ID = Var1, year = Var2, hom_ct = Freq)
 
 # Convert factors to integers/strings
 hex_freq_table_yr$GRID_ID = as.character(paste(hex_freq_table_yr$GRID_ID))
 hex_freq_table_yr$year = as.integer(paste(hex_freq_table_yr$year))
 
 # Create an expanded grid of hexagons that includes each hex/year combo
-hexagons_yr = expand.grid(GRID_ID = hexagons$GRID_ID, year = 1940:1964) %>% left_join(hexagons, by = "GRID_ID") %>% st_as_sf()
+hexagons_yr = expand.grid(GRID_ID = hexagons$GRID_ID, year = 1940:1964) %>%
+ left_join(hexagons, by = "GRID_ID") %>%
+ st_as_sf()
 
 # Merge frequency table back into hex/year grid
-hexagons_hom_ct_yr = hexagons_yr %>% left_join(hex_freq_table_yr, join_by(GRID_ID, year)) %>% mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
+hexagons_hom_ct_yr = hexagons_yr %>%
+ left_join(hex_freq_table_yr, join_by(GRID_ID, year)) %>%
+ mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
 ```
 
 Creating a list of hexagon maps:
@@ -182,17 +200,22 @@ A similar set of code is used to create an animation of homicides per Community 
 
 ```{r CAs_spatial_count_yr, results=FALSE, message=FALSE, warning=FALSE}
 # Create table of frequency by CA and year
-CA_freq_table_yr = as.data.frame(table(homicides_CA_joined$area_num_1, homicides_CA_joined$year)) %>% rename(area_num_1 = Var1, year = Var2, hom_ct = Freq)
+CA_freq_table_yr = as.data.frame(table(homicides_CA_joined$area_num_1, homicides_CA_joined$year)) %>%
+  rename(area_num_1 = Var1, year = Var2, hom_ct = Freq)
 
 # Convert factors to integers/strings
 CA_freq_table_yr$area_num_1 = as.character(paste(CA_freq_table_yr$area_num_1))
 CA_freq_table_yr$year = as.integer(paste(CA_freq_table_yr$year))
 
 # Create an expanded grid of CAs that includes each CA/year combo
-CAs_yr = expand.grid(area_num_1 = CAs$area_num_1, year = 1940:1964) %>% left_join(CAs, by = "area_num_1") %>% st_as_sf()
+CAs_yr = expand.grid(area_num_1 = CAs$area_num_1, year = 1940:1964) %>%
+  left_join(CAs, by = "area_num_1") %>%
+  st_as_sf()
 
 # Merge frequency table back into CA/year grid
-CAs_hom_ct_yr = CAs_yr %>% left_join(CA_freq_table_yr, join_by(area_num_1, year)) %>% mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
+CAs_hom_ct_yr = CAs_yr %>%
+	left_join(CA_freq_table_yr, join_by(area_num_1, year)) %>%
+	mutate(hom_ct = ifelse(is.na(hom_ct), 0, hom_ct))
 ```
 
 Creating a list of community area maps:
@@ -225,16 +248,24 @@ hex_map_list_5yr = list()
 CA_map_list_5yr = list()
 
 for (n in seq(1940, 1964, 5)) {
-  data = hexagons_hom_ct_yr %>% filter(between(year, n, n+4))
-  aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>% rename(GRID_ID = Group.1, hom_ct = x) %>% left_join(hexagons, by = "GRID_ID") %>% st_as_sf()
+  data = hexagons_hom_ct_yr %>%
+		filter(between(year, n, n+4))
+  aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>%
+		rename(GRID_ID = Group.1, hom_ct = x) %>%
+		left_join(hexagons, by = "GRID_ID") %>%
+		st_as_sf()
   map = tm_shape(aggregated_data) + tm_polygons(col = "hom_ct", breaks = c(0, 1, 5, 10, 50, Inf), title = paste0("Homicides in ", n, "-", n+4))
   hex_map_list_5yr[[1+((n-1940)/5)]] = map
   rm(n, data, aggregated_data, map)
 }
 
 for (n in seq(1940, 1964, 5)) {
-  data = CAs_hom_ct_yr %>% filter(between(year, n, n+4))
-  aggregated_data = aggregate(data$hom_ct, list(data$area_num_1), FUN = sum) %>% rename(area_num_1 = Group.1, hom_ct = x) %>% left_join(CAs, by = "area_num_1") %>% st_as_sf()
+  data = CAs_hom_ct_yr %>%
+		filter(between(year, n, n+4))
+  aggregated_data = aggregate(data$hom_ct, list(data$area_num_1), FUN = sum) %>%
+		rename(area_num_1 = Group.1, hom_ct = x) %>%
+		left_join(CAs, by = "area_num_1") %>%
+		st_as_sf()
   map = tm_shape(aggregated_data) + tm_polygons(col = "hom_ct", breaks = c(0, 1, 5, 10, 50, 100, Inf), title = paste0("Homicides in ", n, "-", n+4))
   CA_map_list_5yr[[1+((n-1940)/5)]] = map
   rm(n, data, aggregated_data, map)
@@ -265,7 +296,7 @@ leaflet(homicides_jitter) %>%
 
 **Preliminary findings:** Rather intuitively, the standard deviational ellipse encompasses the South and West Sides, with the Near North Side included as well. Future analysis could demonstrate the change of the ellipse's size and shape over time, which could demonstrate how the geographic distribution of homicides spread out in a more systematic way.
 
-# Part 2: Map Visualizations for Cook County Homicides, 1874-1930 and 1965-2016
+# Part 2: Map Visualizations for Cook County Homicides, 1874-2016
 
 ## Loading Data
 
@@ -273,7 +304,8 @@ A frequency table of homicides per hexagon before and after the time period show
 
 ```{r pt2_load_data, results=FALSE, message=FALSE, warning=FALSE}
 # Load in homicides per hexagon data
-pt2_hex_freq_table_yr = read.csv("homicides_1874-2020_hex/homicides_pre_1931_post_1964.csv") %>% select(GRID_ID, year, hom_ct = homicides)
+pt2_hex_freq_table_yr = read.csv("homicides_1874-2020_hex/homicides_pre_1931_post_1964.csv") %>%
+	select(GRID_ID, year, hom_ct = homicides)
 ```
 
 ## Choropleth Maps
@@ -282,16 +314,24 @@ First, all homicides 1874-1930 and 1965-2020 are visualized using a simple choro
 
 ```{r pt2_choropleth, results=FALSE, message=FALSE, warning=FALSE}
 # Separate data between 1874-1930 and between 1965-2020
-pt2_before_only = pt2_hex_freq_table_yr %>% filter(year < 1931) %>% select(GRID_ID, hom_ct)
-pt2_after_only = pt2_hex_freq_table_yr %>% filter(year > 1964) %>% select(GRID_ID, hom_ct)
+pt2_before_only = pt2_hex_freq_table_yr %>%
+	filter(year < 1931) %>%
+	select(GRID_ID, hom_ct)
+
+pt2_after_only = pt2_hex_freq_table_yr %>%
+	filter(year > 1964) %>%
+	select(GRID_ID, hom_ct)
 
 # Take aggregate of tables by GRID_ID
 pt2_before_aggregated = aggregate(.~GRID_ID, data = pt2_before_only,FUN = sum)
 pt2_after_aggregated = aggregate(.~GRID_ID, data = pt2_after_only, FUN = sum)
 
 # Merge frequency table into hexes
-pt2_before_hexagons_hom_ct = hexagons %>% left_join(pt2_before_aggregated, by = "GRID_ID")
-pt2_after_hexagons_hom_ct = hexagons %>% left_join(pt2_after_aggregated, by = "GRID_ID")
+pt2_before_hexagons_hom_ct = hexagons %>%
+	left_join(pt2_before_aggregated, by = "GRID_ID")
+
+pt2_after_hexagons_hom_ct = hexagons %>%
+	left_join(pt2_after_aggregated, by = "GRID_ID")
 ```
 
 Viewing the hexagons:
@@ -312,10 +352,13 @@ Next, time series animations like the ones shown above are created for hexagons 
 
 ```{r pt2_choropleth_time_series, results=FALSE, message=FALSE, warning=FALSE}
 # Create an expanded grid of hexagons that includes each hex/year combo
-pt2_hexagons_yr = expand.grid(GRID_ID = hexagons$GRID_ID, year = c(1874:1930, 1965:2020)) %>% left_join(hexagons, by = "GRID_ID") %>% st_as_sf()
+pt2_hexagons_yr = expand.grid(GRID_ID = hexagons$GRID_ID, year = c(1874:1930, 1965:2016)) %>%
+	left_join(hexagons, by = "GRID_ID") %>%
+	st_as_sf()
 
 # Merge into hexagons
-pt2_hexagons_hom_ct_yr = pt2_hexagons_yr %>% left_join(pt2_hex_freq_table_yr, join_by(GRID_ID, year))
+pt2_hexagons_hom_ct_yr = pt2_hexagons_yr %>%
+	left_join(pt2_hex_freq_table_yr, join_by(GRID_ID, year))
 ```
 
 Creating a list of hexagon maps:
@@ -325,16 +368,24 @@ pt2_map_list_before = list()
 pt2_map_list_after = list()
 
 for (n in seq(1875, 1929, 5)) {
-  data = pt2_hexagons_hom_ct_yr %>% filter(between(year, n, n+4))
-  aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>% rename(GRID_ID = Group.1, hom_ct = x) %>% left_join(hexagons, by = "GRID_ID") %>% st_as_sf()
+  data = pt2_hexagons_hom_ct_yr %>%
+		filter(between(year, n, n+4))
+  aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>%
+		rename(GRID_ID = Group.1, hom_ct = x) %>%
+		left_join(hexagons, by = "GRID_ID") %>%
+		st_as_sf()
   map = tm_shape(aggregated_data) + tm_polygons(col = "hom_ct", breaks = c(0, 1, 5, 10, 50, Inf), title = paste0("Homicides in ", n, "-", n+4))
   pt2_map_list_before[[1+((n-1875)/5)]] = map
   rm(n, data, aggregated_data, map)
 }
 
 for (n in seq(1965, 2014, 5)) {
-  data = pt2_hexagons_hom_ct_yr %>% filter(between(year, n, n+4))
-  aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>% rename(GRID_ID = Group.1, hom_ct = x) %>% left_join(hexagons, by = "GRID_ID") %>% st_as_sf()
+  data = pt2_hexagons_hom_ct_yr %>%
+		filter(between(year, n, n+4))
+  aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>%
+		rename(GRID_ID = Group.1, hom_ct = x) %>%
+		left_join(hexagons, by = "GRID_ID") %>%
+		st_as_sf()
   map = tm_shape(aggregated_data) + tm_polygons(col = "hom_ct", breaks = c(0, 1, 5, 10, 50, Inf), title = paste0("Homicides in ", n, "-", n+4))
   pt2_map_list_after[[1+((n-1965)/5)]] = map
   rm(n, data, aggregated_data, map)
@@ -348,8 +399,8 @@ tmap_animation(pt2_map_list_before, "hex_map_list_before.gif", width = 400, heig
 tmap_animation(pt2_map_list_after, "hex_map_list_after.gif", width = 400, height = 500, delay = 100)
 ```
 
-![**Animation of Homicides per Hexagon by Year 1874-1930**](hex_map_list_before.gif)
-![**Animation of Homicides per Hexagon by Year 1965-2014**](hex_map_list_after.gif)
+![**Animation of Homicides per Hexagon by 5-Year Timespan 1874-1930**](hex_map_list_before.gif)
+![**Animation of Homicides per Hexagon by 5-Year Timespan 1965-2014**](hex_map_list_after.gif)
 
 **Preliminary findings:** The two animations above further demonstrate the spreading-out of homicides over time that parallels the outward growth of the city. The first animation, including homicides from 1865 to 1930, begins with homicides almost entirely concentrated in the city center. By 1925-1929, however, homicides are just as concentrated in the Near West and Near South Sides as they are in the city center. The latter animation also shows a diffusion of homicides over time, though also shows a decrease in their overall concentration within the last two time periods. It also suggests that the shape of this distribution has fundamentally changed over the past few decades -- from a hub-and-spoke shape centered on the Loop and reaching into the South, West, and North Sides in the 1960s to two distinct regions on the West and South Sides and no central concentration in the Loop in the 2010s.
 
@@ -361,26 +412,145 @@ An animation of homicides per hexagon per 5-year interval for all time periods i
 tmap_animation(c(pt2_map_list_before, hex_map_list_5yr, pt2_map_list_after), "hex_map_list_all.gif", width = 400, height = 500, delay = 100)
 ```
 
-![**Animation of Homicides per Hexagon by Year 1874-2014**](hex_map_list_all.gif)
+![**Animation of Homicides per Hexagon by 5-Year Timespan 1874-2014**](hex_map_list_all.gif)
 
 **Note:** As mentioned above, methodologies varied between the three time periods (all homicides were included in 1874-1930; only murders, justifiable homicides, and unclear verdicts in 1940-1964; and only murders in 1965-2016) and thus time periods should be compared with caution.
 
-# Part 3: Time Series Line Graph for Annexed and Non-Annexed Community Areas
+# Part 3: Weighting Yearly Homicide Counts by Building Counts
 
-A time series line graph is made to show the total number of homicides per year in annexed and non-annexed Community Areas.
+In this section, the map of homicide counts per hexagon is reproduced, but with Zillow "ZTRAX" building counts used as a denominator, to get a rate of homicides based on how settled the area was at the time. An additional time series map animation of building counts is provided as well for reference.
 
-```{r pt3_time_series_line_graph, results=FALSE, message=FALSE, warning=FALSE}
-annexed_CAs = read.csv("annexed/annexed.csv")
+```{r pt2_hex_map_yr_bldg_weighted, message=FALSE, warning=FALSE}
+hex_bldgs = read.csv("hexagons/hex_building_counts.csv")
 
-annexed = CAs_hom_ct_yr %>% left_join(annexed_CAs, by="community") %>% mutate(annexed = ifelse(is.na(annexed), "Not Annexed", "Annexed")) %>% select(area_num_1, year, community, hom_ct, annexed) %>% st_drop_geometry()
+pt2_hexagons_hom_ct_yr_ALL = rbind(hexagons_hom_ct_yr, pt2_hexagons_hom_ct_yr)
 
-annexed_aggregated = aggregate(annexed$hom_ct, list(annexed$year, annexed$annexed), FUN = sum) %>% rename(year = Group.1, annexed = Group.2, hom_ct = x)
+pt2_map_list_bldgs = list()
+pt2_map_list_bldg_weighted = list()
 
-# Line Graph
-ggplot(data = annexed_aggregated, aes(x = year, y = hom_ct, group = annexed)) +
-  geom_line(aes(color = annexed), size = 1) +
-  geom_point()
+for (n in seq(1875, 2014, 5)) {
+  if (n < 1930 | n > 1939) {
+    # Homicide data
+    data = pt2_hexagons_hom_ct_yr_ALL %>%
+			filter(between(year, n, n+4))
+    aggregated_data = aggregate(data$hom_ct, list(data$GRID_ID), FUN = sum) %>%
+			rename(GRID_ID = Group.1, hom_ct = x) %>%
+			left_join(hexagons, by = "GRID_ID") %>%
+			st_as_sf()
 
+    # Building data
+    bldgs = hex_bldgs %>%
+			filter(between(year, n, n+4))
+    aggregated_bldgs = aggregate(bldgs$weighted_building_count, list(bldgs$GRID_ID), FUN = mean) %>%
+			rename(GRID_ID = Group.1, bldg_ct = x)
+
+    # Combined data
+    aggregated_data = aggregated_data %>%
+			left_join(aggregated_bldgs, by = "GRID_ID") %>%
+			mutate(hom_rt = hom_ct / bldg_ct) %>%
+			mutate(hom_rt = ifelse(hom_rt == Inf, NA, hom_rt))
+
+    # Maps
+    bldgs_map = tm_shape(aggregated_data) + tm_polygons(col = "bldg_ct", breaks = c(0,1,5,10,50,100,500,1000,Inf), title = paste0("Buildings in ", n, "-", n+4))
+    map = tm_shape(aggregated_data) + tm_polygons(col = "hom_rt", breaks = c(0, 0.001, 0.01, 0.1, 1, 10), title = paste0("Homicides per building in ", n, "-", n+4))
+
+    pt2_map_list_bldgs[[1+length(pt2_map_list_bldgs)]] = bldgs_map
+    pt2_map_list_bldg_weighted[[1+length(pt2_map_list_bldg_weighted)]] = map
+    
+    rm(n, data, aggregated_data, bldgs, aggregated_bldgs, map)
+  }
+}
 ```
 
-This will be more meaningful once building data are used as a denominator, after which a rate of homicides over building density will be used instead.
+An animation of building-weighted homicide rates per hexagon per 5-year interval is presented below:
+
+```{r pt2_hex_map_yr_animate_bldg_weighted, eval=FALSE, message=FALSE, warning=FALSE}
+tmap_animation(pt2_map_list_bldg_weighted, "hex_map_list_bldg_weighted.gif", width = 400, height = 500, delay = 100)
+```
+
+![**Animation of Homicides per Building per Hexagon by 5-Year Timespan 1874-2014**](hex_map_list_bldg_weighted.gif)
+
+**Note:** Areas labeled "missing" had no buildings, so the calculation of the rate produced a division by 0 error.
+
+<details>
+  <summary>**Click here** to see a time series animation of building counts</summary>
+  
+```{r pt2_hex_map_yr_animate_bldgs, eval=FALSE, message=FALSE, warning=FALSE}
+tmap_animation(pt2_map_list_bldgs, "hex_map_list_bldgs.gif", width = 400, height = 500, delay = 100)
+```
+  
+  ![**Animation of Buildings per Hexagon by 5-Year Timespan 1874-2014**](hex_map_list_bldgs.gif)
+  
+</details>
+
+# Part 3: Time Series Line Graphs by Annexation Status and Land Sale Year
+
+In this section, time series line graphs are made to show the rate of homicides per building for each year in hexagons categorized by annexation status and land sale year.
+
+## Creating a Time Series Dataset with Homicides per Building Rates for All Hexagons and Years
+
+Previous homicide and building data are used to make a dataset for Part 3 that characterizes each hexagon by its homicide count, building count, and homicide per building rate for each year.
+
+```{r pt3_data, results=FALSE, message=FALSE, warning=FALSE}
+pt3_data = left_join(pt2_hexagons_hom_ct_yr_ALL, hex_bldgs, by = c("GRID_ID", "year")) %>%
+	select(GRID_ID, year, hom_ct, bldg_ct = weighted_building_count) %>%
+	mutate(hom_rt = hom_ct / bldg_ct) %>%
+	mutate(hom_rt = ifelse(hom_rt == Inf, NA, hom_rt))
+```
+
+## Annexations Status
+
+First, hexagons are categorized by the following classification scheme:
+* Hexagons within the original Chicago city limits
+* Hexagons within areas incorporated into the city by the state
+* Hexagons within settlements that were annexed into the city
+* Hexagons within settlements (Jefferson and Lake Townships) that were sparsely populated when they were annexed into the city.
+
+This is done by calculating the centroids of the hexagons, and spatially assigning those centroids to the surrounding area.
+
+```{r pt3_hex_annexation_status, results=FALSE, message=FALSE, warning=FALSE}
+annexed_areas = read_sf("annexed/annexed_areas/Annexed Settlements.shp") %>%
+	st_transform(st_crs(hexagons))
+
+hexagons_annexed = hexagons %>%
+	st_centroid() %>%
+	st_join(annexed_areas, join = st_within) %>%
+	select(-year) %>%
+	mutate(annex_category = case_when(
+    settlement == "CHICAGO" ~ "Original",
+    is.na(settlement) ~ "Incorporated",
+    settlement == "LAKE" | settlement == "JEFFERSON" ~ "Annexed - Sparse",
+    .default = "Annexed - Populated"
+  )) %>%
+	st_drop_geometry() %>%
+	left_join(hexagons, ., by="GRID_ID") %>%
+select(GRID_ID, settlement, annex_category)
+```
+
+The map below summarizes the categorization of hexagons by annexation status:
+
+```{r pt3_annexation_map, message=FALSE, warning=FALSE}
+tmap_mode("view")
+tm_shape(hexagons_annexed) + tm_polygons(col = "annex_category", title="Annexation Category", id="annex_category", popup.vars = c("Grid ID:" = "GRID_ID", "Settlement:" = "settlement", "Annexation Category:" = "annex_category"))
+```
+
+Next, the annexation table is joined to the Part 3 dataset to categorize each observation by annexation status. Then, observations are aggregated by annexation status to produce the time series graph shown below.
+
+```{r pt3_annexed_aggregated, results=FALSE, message=FALSE, warning=FALSE}
+pt3_annexed = left_join(pt3_data, st_drop_geometry(hexagons_annexed), by = "GRID_ID") %>%
+  st_drop_geometry()
+
+pt3_annexed_aggregated = pt3_annexed %>%
+  group_by(year, annex_category) %>%
+  summarise(hom_ct = sum(hom_ct), bldg_ct = sum(bldg_ct)) %>%
+  mutate(hom_rt = hom_ct / bldg_ct)
+
+# Line Graph
+ggplot(data = pt3_annexed_aggregated, aes(x = year, y = hom_rt, group = annex_category)) +
+  geom_line(aes(color = annex_category), size = 1) +
+  ylab("Homicides per Building") +
+  xlab("Year")
+```
+
+## Land Sale Year
+
