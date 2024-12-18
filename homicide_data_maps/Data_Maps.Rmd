@@ -457,7 +457,7 @@ for (n in seq(1875, 2014, 5)) {
     pt2_map_list_bldgs[[1+length(pt2_map_list_bldgs)]] = bldgs_map
     pt2_map_list_bldg_weighted[[1+length(pt2_map_list_bldg_weighted)]] = map
     
-    rm(n, data, aggregated_data, bldgs, aggregated_bldgs, map)
+    rm(n, data, aggregated_data, bldgs, aggregated_bldgs, map, bldgs_map)
   }
 }
 ```
@@ -506,7 +506,7 @@ First, hexagons are categorized by the following classification scheme:
 * Hexagons within settlements that were annexed into the city
 * Hexagons within settlements (Jefferson and Lake Townships) that were sparsely populated when they were annexed into the city.
 
-This is done by calculating the centroids of the hexagons, and spatially assigning those centroids to the surrounding area.
+This is done by calculating the centroids of the hexagons, and spatially assigning those centroids to the surrounding area. Additionally, any hexagon centroids that are outside of the city limits are excluded.
 
 ```{r pt4_hex_annexation_status, results=FALSE, message=FALSE, warning=FALSE}
 annexed_areas = read_sf("annexed/annexed_areas/Annexed Settlements.shp") %>%
@@ -514,6 +514,7 @@ annexed_areas = read_sf("annexed/annexed_areas/Annexed Settlements.shp") %>%
 
 hexagons_annexed = hexagons %>%
   st_centroid() %>%
+  st_filter(city_bounds, .predicate = st_within) %>%
   st_join(annexed_areas, join = st_within) %>%
   select(-year) %>%
   mutate(annex_category = case_when(
@@ -523,8 +524,8 @@ hexagons_annexed = hexagons %>%
     .default = "Annexed - Populated"
   )) %>%
   st_drop_geometry() %>%
-  left_join(hexagons, ., by="GRID_ID") %>%
-select(GRID_ID, settlement, annex_category)
+  right_join(hexagons, ., by="GRID_ID") %>%
+  select(GRID_ID, settlement, annex_category)
 ```
 
 The map below summarizes the categorization of hexagons by annexation status:
@@ -537,7 +538,7 @@ tm_shape(hexagons_annexed) + tm_polygons(col = "annex_category", title="Annexati
 Next, the annexation table is joined to the Part 3 dataset to categorize each observation by annexation status. Then, observations are aggregated by annexation status to produce the time series graph shown below.
 
 ```{r pt4_annexed_aggregated, results=FALSE, message=FALSE, warning=FALSE}
-pt4_annexed = left_join(pt4_data, st_drop_geometry(hexagons_annexed), by = "GRID_ID") %>%
+pt4_annexed = right_join(pt4_data, st_drop_geometry(hexagons_annexed), by = "GRID_ID") %>%
   st_drop_geometry()
 
 pt4_annexed_aggregated = pt4_annexed %>%
@@ -549,8 +550,141 @@ pt4_annexed_aggregated = pt4_annexed %>%
 ggplot(data = pt4_annexed_aggregated, aes(x = year, y = hom_rt, group = annex_category)) +
   geom_line(aes(color = annex_category), size = 1) +
   ylab("Homicides per Building") +
-  xlab("Year")
+  xlab("Year") +
+  coord_cartesian(ylim = c(0, 0.01))
 ```
 
+**Note:** The y-axis is limited at 0.01 to reduce the impact of noise on the interpretability of the rest of the graph.
+
+### Map Animation: Homicide Rate by Year by Annexation Category
+
+The animation below shows homicide rates by year, separated by annexation category.
+
+```{r pt4_annexed_animation1, message=FALSE, warning=FALSE}
+mean_na_rm = function(x) {
+  mean(x, na.rm = TRUE)
+}
+
+pt4_map_list_annexed = list()
+
+for (n in seq(1875, 2014, 5)) {
+  if (n < 1930 | n > 1939) {
+    data = pt4_annexed %>%
+      filter(between(year, n, n+4))
+    aggregated_data = aggregate(data$hom_rt, list(data$GRID_ID), FUN = mean_na_rm) %>%
+      rename(GRID_ID = Group.1, hom_rt = x) %>%
+      left_join(hexagons_annexed, by = "GRID_ID") %>%
+      st_as_sf()
+
+    map = tm_shape(aggregated_data) + tm_facets(by = "annex_category", free.coords = F, scale.factor = 2) + tm_polygons(col = "hom_rt", breaks = c(0, 0.001, 0.01, 0.1, 1, 10), title = paste0(n, "-", n+4))
+
+    pt4_map_list_annexed[[1+length(pt4_map_list_annexed)]] = map
+    
+    rm(n, data, aggregated_data, map)
+  }
+}
+```
+
+An animation of building-weighted homicide rates per hexagon per 5-year interval is presented below:
+
+```{r pt4_annexed_animation2, eval=FALSE, message=FALSE, warning=FALSE}
+tmap_animation(pt4_map_list_annexed, "hex_map_list_annexed.gif", width = 800, height = 1000, delay = 100)
+```
+
+![**Animation of Homicides per Building per Hexagon by 5-Year Timespan 1874-2014; Separated by Annexation Category**](hex_map_list_annexed.gif)
+
+
 ## Land Sale Year
+
+
+**Work in progress**
+
+
+## Redlining
+
+Finally, hexagons are categorized by redlining grades, A, B, C, D, and other (includes industrial, commercial, or sparsely built-up areas).
+
+This is done by calculating the centroids of the hexagons, and spatially assigning those centroids to the surrounding area's redlining grade. Additionally, any hexagon centroids that are outside of the city limits are excluded.
+
+```{r pt4_hex_redlining_status, results=FALSE, message=FALSE, warning=FALSE}
+redlined_areas = read_sf("redlining/redlining.geojson") %>%
+  st_transform(st_crs(hexagons)) %>%
+  st_make_valid() %>%
+  select(grade)
+
+hexagons_redlined = hexagons %>%
+  st_centroid() %>%
+  st_filter(city_bounds, .predicate = st_within) %>%
+  st_join(redlined_areas, join = st_within) %>%
+  st_drop_geometry() %>%
+  right_join(hexagons, ., by="GRID_ID") %>%
+  select(GRID_ID, grade)
+```
+
+The map below summarizes the categorization of hexagons by annexation status:
+
+```{r pt4_redlining_map, message=FALSE, warning=FALSE}
+tmap_mode("view")
+tm_shape(hexagons_redlined) + tm_polygons(col = "grade", palette = c("#00aa00", "#0000ff", "#ffff00", "#ff0000"), title="Redlining Grade", id="grade", popup.vars = c("Grid ID:" = "GRID_ID", "Redlining Grade:" = "grade"))
+```
+
+Next, the redlining table is joined to the Part 3 dataset to categorize each observation by redlining grade. Then, observations are aggregated by redlining grade to produce the time series graph shown below.
+
+```{r pt4_redlining_aggregated, results=FALSE, message=FALSE, warning=FALSE}
+pt4_redlined = right_join(pt4_data, st_drop_geometry(hexagons_redlined), by = "GRID_ID") %>%
+  st_drop_geometry()
+
+pt4_redlined_aggregated = pt4_redlined %>%
+  group_by(year, grade) %>%
+  summarise(hom_ct = sum(hom_ct), bldg_ct = sum(bldg_ct)) %>%
+  mutate(hom_rt = hom_ct / bldg_ct)
+
+# Line Graph
+ggplot(data = pt4_redlined_aggregated, aes(x = year, y = hom_rt, group = grade)) +
+  geom_line(aes(color = grade), size = 1, palette = c("#00aa00", "#0000ff", "#ffff00", "#ff0000")) +
+  ylab("Homicides per Building") +
+  xlab("Year") +
+  scale_color_manual(values = c("#00aa00", "#0000ff", "#ffff00", "#ff0000")) +
+  coord_cartesian(ylim = c(0, 0.01))
+```
+
+**Note:** The y-axis is limited at 0.01 to reduce the impact of noise on the interpretability of the rest of the graph.
+
+### Map Animation: Homicide Rate by Year by Annexation Category
+
+The animation below shows homicide rates by year, separated by annexation category.
+
+```{r pt4_redlining_animation1, message=FALSE, warning=FALSE}
+pt4_map_list_redlined = list()
+
+for (n in seq(1875, 2014, 5)) {
+  if (n < 1930 | n > 1939) {
+    data = pt4_redlined %>%
+      filter(between(year, n, n+4))
+    aggregated_data = aggregate(data$hom_rt, list(data$GRID_ID), FUN = mean_na_rm) %>%
+      rename(GRID_ID = Group.1, hom_rt = x) %>%
+      left_join(hexagons_redlined, by = "GRID_ID") %>%
+      st_as_sf()
+
+    map = tm_shape(aggregated_data) + tm_facets(by = "grade", free.coords = F, scale.factor = 2) + tm_polygons(col = "hom_rt", breaks = c(0, 0.001, 0.01, 0.1, 1, 10), title = paste0(n, "-", n+4))
+
+    pt4_map_list_redlined[[1+length(pt4_map_list_redlined)]] = map
+    
+    rm(n, data, aggregated_data, map)
+  }
+}
+```
+
+An animation of building-weighted homicide rates per hexagon per 5-year interval is presented below:
+
+```{r pt4_redlining_animation2, eval=FALSE, message=FALSE, warning=FALSE}
+tmap_animation(pt4_map_list_redlined, "hex_map_list_redlined.gif", width = 800, height = 1500, delay = 100)
+```
+
+![**Animation of Homicides per Building per Hexagon by 5-Year Timespan 1874-2014; Separated by Redlining Grade**](hex_map_list_redlined.gif)
+
+# Part 5: Survivorship Graph of Hexagons with Few Homicides per Year
+
+**Work in progress**
+
 
