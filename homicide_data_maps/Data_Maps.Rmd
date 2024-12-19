@@ -12,7 +12,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Part 1: Map Visualizations for Cook County Homicides, 1940-1965
+# **Part 1:** Map Visualizations for Cook County Homicides, 1940-1965
 
 ## Loading packages
 
@@ -21,6 +21,7 @@ The following R packages will be needed:
 ```{r packages, results=FALSE, message=FALSE, warning=FALSE}
 library(sf)
 library(dplyr)
+library(tidyr)
 library(tmap)
 library(leaflet)
 library(leafgl)
@@ -296,7 +297,7 @@ leaflet(homicides_jitter) %>%
 
 **Preliminary findings:** Rather intuitively, the standard deviational ellipse encompasses the South and West Sides, with the Near North Side included as well. Future analysis could demonstrate the change of the ellipse's size and shape over time, which could demonstrate how the geographic distribution of homicides spread out in a more systematic way.
 
-# Part 2: Map Visualizations for Cook County Homicides, 1874-2016
+# **Part 2:** Map Visualizations for Cook County Homicides, 1874-2016
 
 ## Loading Data
 
@@ -416,7 +417,7 @@ tmap_animation(c(pt2_map_list_before, hex_map_list_5yr, pt2_map_list_after), "he
 
 **Note:** As mentioned above, methodologies varied between the three time periods (all homicides were included in 1874-1930; only murders, justifiable homicides, and unclear verdicts in 1940-1964; and only murders in 1965-2016) and thus time periods should be compared with caution.
 
-# Part 3: Weighting Yearly Homicide Counts by Building Counts
+# **Part 3:** Weighting Yearly Homicide Counts by Building Counts
 
 In this section, the map of homicide counts per hexagon is reproduced, but with Zillow "ZTRAX" building counts used as a denominator, to get a rate of homicides based on how settled the area was at the time. An additional time series map animation of building counts is provided as well for reference.
 
@@ -483,7 +484,7 @@ tmap_animation(pt2_map_list_bldgs, "hex_map_list_bldgs.gif", width = 400, height
   
 </details>
 
-# Part 4: Time Series Line Graphs by Annexation Status and Land Sale Year
+# **Part 4:** Time Series Line Graphs by Annexation Status and Land Sale Year
 
 In this section, time series line graphs are made to show the rate of homicides per building for each year in hexagons categorized by annexation status and land sale year.
 
@@ -593,12 +594,24 @@ tmap_animation(pt4_map_list_annexed, "hex_map_list_annexed.gif", width = 800, he
 
 ![**Animation of Homicides per Building per Hexagon by 5-Year Timespan 1874-2014; Separated by Annexation Category**](hex_map_list_annexed.gif)
 
-
 ## Land Sale Year
 
+<details>
+  <summary>**Work in Progress**</summary>
 
-**Work in progress**
+Next, hexagons are categorized by land sale year.
 
+This is done by calculating the centroids of the hexagons, and spatially assigning those centroids to the surrounding area's land sale year. Additionally, any hexagon centroids that are outside of the city limits are excluded.
+
+```{r pt4_hex_land_sales, results=FALSE, message=FALSE, warning=FALSE}
+land_sales = read_sf("land_sale/cook_county_with_geometries.geojson") %>%
+  st_transform(st_crs(hexagons)) %>%
+  select(Date.of.Purchase) %>%
+  mutate(year = as.integer(format(as.Date(Date.of.Purchase, format = "%m/%d/%Y"), "%Y"))) %>%
+  filter(between(year, 1800, 1900))
+```
+
+</details>
 
 ## Redlining
 
@@ -683,8 +696,31 @@ tmap_animation(pt4_map_list_redlined, "hex_map_list_redlined.gif", width = 800, 
 
 ![**Animation of Homicides per Building per Hexagon by 5-Year Timespan 1874-2014; Separated by Redlining Grade**](hex_map_list_redlined.gif)
 
-# Part 5: Survivorship Graph of Hexagons with Few Homicides per Year
+# **Part 5:** Survivorship Graph of Hexagons with Few Homicides per Year
 
-**Work in progress**
+In this section, survivorship curves are made to show the number of hexagons that had never had more than a certain number of homicides in any given year up to that point.
 
+```{r pt5_data, results=FALSE, message=FALSE, warning=FALSE}
+pt5_data = pt4_data %>%
+  arrange(by = year) %>%
+  st_drop_geometry()
 
+# New columns show cumulative homicides (used for 0 survivorship curve) and
+# cumulative homicides, after integer dividing homicides by 3 (used for 3 survivorship curve)
+pt5_data$csum = ave(pt5_data$hom_ct, pt5_data$GRID_ID, FUN=cumsum)
+pt5_data$csum_div3 = ave((pt5_data$hom_ct %/% 3), pt5_data$GRID_ID, FUN=cumsum)
+
+pt5_data$no_hom_yet = ifelse(pt5_data$csum == 0, 1, 0)
+pt5_data$no_3hom_yet = ifelse(pt5_data$csum_div3 == 0, 1, 0)
+
+pt5_data_aggregated = pt5_data %>%
+  group_by(year) %>%
+  summarise(no_hom_yet = sum(no_hom_yet), no_3hom_yet = sum(no_3hom_yet)) %>%
+  pivot_longer(cols = c(no_hom_yet, no_3hom_yet), names_to = "type", values_to = "survivorship")
+
+# Line Graph
+ggplot(data = pt5_data_aggregated, aes(x = year, y = survivorship, group = type)) +
+  geom_line(aes(color = type), size = 1) +
+  ylab("Number of Hexagons Remaining") +
+  xlab("Year")
+```
