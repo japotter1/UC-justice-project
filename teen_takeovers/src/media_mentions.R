@@ -1,5 +1,5 @@
 ### Analyzing media mentions of "teen takeovers" in Chicago
-# Jada Potter; 6/22/26
+# Jada Potter; 6/23/26
 
 # Note: for this to work, you must copy the news pdfs from Box into the folder "../news_pdfs/"
 # These are in .gitignore to save space
@@ -10,6 +10,7 @@
 
 library(tidyverse)
 library(ggplot2)
+library(zoo)
 
 # First, we make a function that takes a file name input and extracts the date (in character form because sapply doesn't work with dates)
 # Return NA if no valid date in the name
@@ -71,38 +72,26 @@ news_sources[["ALL_NETWORK"]]   = c(news_sources[["abc7"]],
 ##### PART 3: descriptive stats
 
 
-# Sum of squares function (unless this isn't needed)
-ss = function(x) {
-  x = as.numeric(x)
-  return(sum((x - mean(x))^2))
-}
-
 # Create table of summary stats using summary function
 summary_stats = news_sources %>%
   lapply(summary) %>%
   as.data.frame() %>%
-  t() %>% as.data.frame() %>%  # transpose and then convert back to data frame because it makes the data frame backwards for some reason
+  t() %>% as.data.frame() %>%  ## transpose and then convert back to data frame because it makes the data frame backwards for some reason
   rownames_to_column("source")
 
-# Add standard deviations and sums of squares
+# Add standard deviations
 standard_devs = news_sources %>%
   lapply(sd) %>%
   as.data.frame(row.names = c("SD")) %>%
   t() %>% as.data.frame() %>%
   rownames_to_column("source")
 
-summary_stats = summary_stats %>% left_join(standard_devs, by = "source")
+# Join them together and specify that these are summaries of dates (so can be merged with other summary tables later in Part 6)
+summary_stats = summary_stats %>%
+  left_join(standard_devs, by = "source") %>%
+  rename_with(~paste0(., "_date"), c(Min.:SD))
 
-sums_of_squares = news_sources %>%
-  lapply(ss) %>%
-  as.data.frame(row.names = c("SS")) %>%
-  t() %>% as.data.frame() %>%
-  rownames_to_column("source")
-
-summary_stats = summary_stats %>% left_join(sums_of_squares, by = "source")
-
-# Export stats
-write.csv(summary_stats, "../output/summary_stats.csv")
+rm(standard_devs)  ## Cleanup!
 
 
 ##### PART 4: histograms
@@ -124,5 +113,138 @@ axis(1, at = year_labels$numeric, labels = year_labels$year)
 legend(x = 19144, y = 100, legend=c('Q1', 'Q2', 'Q3', 'Q4'), 
        fill = c('#bebada', '#fb8072', '#8dd3c7', '#ffffb3')
 )
+
+## Can make more histograms here for different sources, but moving on for now
+
+
+##### PART 5: make tables by month and quarter - sorry this is a little messy!
+
+
+# Convert raw vectors of dates to tables showing number of mentions each month
+news_sources_bymonth = news_sources %>%
+  lapply(as.yearmon) %>%
+  lapply(table) %>%
+  lapply(as.data.frame, stringsAsFactors = F) %>%
+  lapply(rename, month = Var1) %>%
+  lapply(mutate, month = as.yearmon(month))  # Have to convert back to yearmon because as.data.frame makes it a character for some reason
+
+# Same as above, but for quarters
+news_sources_byqtr = news_sources %>%
+  lapply(as.yearqtr) %>%
+  lapply(table) %>%
+  lapply(as.data.frame, stringsAsFactors = F) %>%
+  lapply(rename, qtr = Var1) %>%
+  lapply(mutate, qtr = as.yearqtr(qtr))  # Have to convert back to yearqtr because as.data.frame makes it a character for some reason
+
+# Change name of Freq columns to just be the name of the news source so we can merge them later
+# (doing this in a for loop cause I can't figure it out with lapply)
+# Yes, this is inefficient, if you want to make it better feel free to
+for (i in seq_along(news_sources_bymonth)) {
+  cname = names(news_sources_bymonth)[i]
+  news_sources_bymonth[[i]] = news_sources_bymonth[[i]] %>% rename(!!cname := Freq)  ## Idk why need to use !! and := it just works, had to google it, dplyr is weird
+  news_sources_byqtr[[i]] = news_sources_byqtr[[i]] %>% rename(!!cname := Freq)
+  rm(i, cname)
+}
+
+# Reduce down to single data frames for months and for quarters
+news_sources_bymonth_df = Reduce(full_join, news_sources_bymonth)
+news_sources_byqtr_df = Reduce(full_join, news_sources_byqtr)
+
+# Get min and max months/quarters in order to make full tables with all possible dates
+start_month = min(news_sources_bymonth_df$month)
+end_month = max(news_sources_bymonth_df$month)
+start_qtr = min(news_sources_byqtr_df$qtr)
+end_qtr = max(news_sources_byqtr_df$qtr)
+
+# Make full table of all possible months and merge in "news_sources_bymonth_df"
+mentions_by_month = seq.Date(from = start_month, to = end_month, by = "month") %>%
+  as.yearmon() %>%
+  data.frame(month = .) %>%
+  left_join(news_sources_bymonth_df)
+
+# Same as above, but for quarters
+mentions_by_qtr = seq.Date(from = start_qtr, to = end_qtr, by = "quarter") %>%
+  as.yearqtr() %>%
+  data.frame(qtr = .) %>%
+  left_join(news_sources_byqtr_df)
+
+
+##### PART 6: more descriptive stats! - month and quarter tables
+
+
+# By month
+summary_bymonth = mentions_by_month %>%
+  select(-month) %>%
+  sapply(summary) %>%
+  as.data.frame() %>%
+  t() %>% as.data.frame() %>%
+  rownames_to_column("source")
+
+summary_bymonth_sd = mentions_by_month %>%
+  select(-month) %>%
+  sapply(sd, na.rm = T) %>%
+  as.data.frame() %>%
+  rename("SD" = ".") %>%
+  rownames_to_column("source")
+
+summary_bymonth = summary_bymonth %>%
+  left_join(summary_bymonth_sd, by = "source") %>%
+  rename_with(~paste0(., "_permonth"), c(Min.:SD))
+
+rm(summary_bymonth_sd)  ## Cleanup!
+
+# By quarter
+summary_byqtr = mentions_by_qtr %>%
+  select(-qtr) %>%
+  sapply(summary) %>%
+  as.data.frame() %>%
+  t() %>% as.data.frame() %>%
+  rownames_to_column("source")
+
+summary_byqtr_sd = mentions_by_qtr %>%
+  select(-qtr) %>%
+  sapply(sd, na.rm = T) %>%
+  as.data.frame() %>%
+  rename("SD" = ".") %>%
+  rownames_to_column("source")
+
+summary_byqtr = summary_byqtr %>%
+  left_join(summary_byqtr_sd, by = "source") %>%
+  rename_with(~paste0(., "_perqtr"), c(Min.:SD))
+
+rm(summary_byqtr_sd)  ## Cleanup!
+
+# News source counts
+summary_cts = mentions_by_qtr %>%
+  select(-qtr) %>%
+  summarize_all(.funs = sum, na.rm = T) %>%
+  t() %>% as.data.frame() %>%
+  rename("total_articles" = "V1") %>%
+  rownames_to_column("source")
+
+# Summary stats by source totals
+summary_sourcetotals = summary_cts %>%
+  filter(!grepl("ALL_", source)) %>%
+  summary()
+
+# View summary stats of total articles per source
+summary_sourcetotals
+
+# Combine and export stats
+summary_ALL = left_join(summary_cts, summary_stats, by = "source") %>%
+  left_join(summary_bymonth, by = "source") %>%
+  left_join(summary_byqtr, by = "source")
+
+write.csv(summary_ALL, "../output/summary_stats.csv")
+
+
+##### PART 7: line graphs (much more doable now that we have counts per month and per quarter)
+
+
+# Mentions per month: individual sources
+# Mentions per month: groups of sources (all, network, dan)
+
+# Mentions per quarter: individual sources
+# Mentions per quarter: groups of sources (all, network, dan)
 
 
