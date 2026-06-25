@@ -241,10 +241,160 @@ write.csv(summary_ALL, "../output/summary_stats.csv")
 ##### PART 7: line graphs (much more doable now that we have counts per month and per quarter)
 
 
-# Mentions per month: individual sources
-# Mentions per month: groups of sources (all, network, dan)
+# Because ggplot2 is weird, we have to reshape the data into "long" format
+long_mentions_by_month = mentions_by_month %>%
+  pivot_longer(names_to = "source", values_to = "n_mentions", cols = c("abc7":"ALL_NETWORK")) %>%
+  mutate_all(~replace(., is.na(.), 0))  ## Changing NA to 0 because it makes more sense in line graphs
 
-# Mentions per quarter: individual sources
-# Mentions per quarter: groups of sources (all, network, dan)
+long_mentions_by_qtr = mentions_by_qtr %>%
+  pivot_longer(names_to = "source", values_to = "n_mentions", cols = c("abc7":"ALL_NETWORK")) %>%
+  mutate_all(~replace(., is.na(.), 0))  ## Changing NA to 0 because it makes more sense in line graphs
 
+# Create Date class column (works better with ggplot2)
+long_mentions_by_month = long_mentions_by_month %>% mutate(d_month = as.Date(month))
+long_mentions_by_qtr = long_mentions_by_qtr %>% mutate(d_qtr = as.Date(qtr))
+
+# Vectors of network names to select in different graphs
+vec_network = c("abc7", "cbs_chicago", "fox32", "nbc_chicago", "wgn_radio", "wgn_tv", "ALL_NETWORK")
+vec_dan_proft = c("chambana_sun", "chicago_city_wire", "dupage_policy_journal", "north_cook_news", "prairie_state_wire", "se_illinois_news", "south_cook_news", "ALL_DAN_PROFT")
+vec_all_sources = c("ALL_NETWORK", "ALL_DAN_PROFT", "ALL_SOURCES")
+
+# Vectors of months and quarters for labeling
+vec_months = c(
+  "Jan '22" = as.Date("2022-01-01"),
+  "Apr '22" = as.Date("2022-04-01"),
+  "Jul '22" = as.Date("2022-07-01"),
+  "Oct '22" = as.Date("2022-10-01"),
+  "Jan '23" = as.Date("2023-01-01"),
+  "Apr '23" = as.Date("2023-04-01"),
+  "Jul '23" = as.Date("2023-07-01"),
+  "Oct '23" = as.Date("2023-10-01"),
+  "Jan '24" = as.Date("2024-01-01"),
+  "Apr '24" = as.Date("2024-04-01"),
+  "Jul '24" = as.Date("2024-07-01"),
+  "Oct '24" = as.Date("2024-10-01"),
+  "Jan '25" = as.Date("2025-01-01"),
+  "Apr '25" = as.Date("2025-04-01"),
+  "Jul '25" = as.Date("2025-07-01"),
+  "Oct '25" = as.Date("2025-10-01"),
+  "Jan '26" = as.Date("2026-01-01"),
+  "Apr '26" = as.Date("2026-04-01"),
+  "Jul '26" = as.Date("2026-07-01"),
+  "Oct '26" = as.Date("2026-10-01")
+  )
+
+vec_qtrs = c(
+  "Q1 '22" = as.Date("2022-01-01"),
+  "Q2 '22" = as.Date("2022-04-01"),
+  "Q3 '22" = as.Date("2022-07-01"),
+  "Q4 '22" = as.Date("2022-10-01"),
+  "Q1 '23" = as.Date("2023-01-01"),
+  "Q2 '23" = as.Date("2023-04-01"),
+  "Q3 '23" = as.Date("2023-07-01"),
+  "Q4 '23" = as.Date("2023-10-01"),
+  "Q1 '24" = as.Date("2024-01-01"),
+  "Q2 '24" = as.Date("2024-04-01"),
+  "Q3 '24" = as.Date("2024-07-01"),
+  "Q4 '24" = as.Date("2024-10-01"),
+  "Q1 '25" = as.Date("2025-01-01"),
+  "Q2 '25" = as.Date("2025-04-01"),
+  "Q3 '25" = as.Date("2025-07-01"),
+  "Q4 '25" = as.Date("2025-10-01"),
+  "Q1 '26" = as.Date("2026-01-01"),
+  "Q2 '26" = as.Date("2026-04-01"),
+  "Q3 '26" = as.Date("2026-07-01"),
+  "Q4 '26" = as.Date("2026-10-01")
+)
+
+## Graphs:
+
+# Figure 1a: Network source mentions by month
+long_mentions_by_month %>%
+  filter(source %in% vec_network) %>%
+  ggplot(aes(x = d_month, y = n_mentions, color = source)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(breaks = vec_months) +
+  labs(
+    title = "Mentions of 'teen takeovers' per month by network source",
+    x = "Month",
+    y = "Number of mentions",
+    color = "Source"
+  )
+
+ggsave("../output/fig1a_network_by_month.png", scale = 2.5)
+
+# Figure 1b: Network source mentions by quarter
+long_mentions_by_qtr %>%
+  filter(source %in% vec_network) %>%
+  ggplot(aes(x = d_qtr, y = n_mentions, color = source)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(breaks = vec_months) +
+  labs(
+    title = "Mentions of 'teen takeovers' per quarter by network source",
+    x = "Quarter",
+    y = "Number of mentions",
+    color = "Source"
+  )
+
+ggsave("../output/fig1b_network_by_qtr.png", scale = 2.5)
+
+# Figure 2a: Dan Proft source mentions by month
+long_mentions_by_month %>%
+  filter(source %in% vec_dan_proft) %>%
+  ggplot(aes(x = d_month, y = n_mentions, color = source)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(breaks = vec_months) +
+  labs(
+    title = "Mentions of 'teen takeovers' per month by Dan-Proft funded source",
+    x = "Month",
+    y = "Number of mentions",
+    color = "Source"
+  )
+
+ggsave("../output/fig2a_danproft_by_month.png", scale = 2.5)
+
+# Figure 2b: Dan Proft source mentions by quarter
+long_mentions_by_qtr %>%
+  filter(source %in% vec_dan_proft) %>%
+  ggplot(aes(x = d_qtr, y = n_mentions, color = source)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(breaks = vec_qtrs) +
+  labs(
+    title = "Mentions of 'teen takeovers' per quarter by Dan-Proft funded source",
+    x = "Quarter",
+    y = "Number of mentions",
+    color = "Source"
+  )
+
+ggsave("../output/fig2b_danproft_by_qtr.png", scale = 2.5)
+
+# Figure 3a: Groups of sources mentions by month
+long_mentions_by_month %>%
+  filter(source %in% vec_all_sources) %>%
+  ggplot(aes(x = d_month, y = n_mentions, color = source)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(breaks = vec_months) +
+  labs(
+    title = "Mentions of 'teen takeovers' per month by source type",
+    x = "Month",
+    y = "Number of mentions",
+    color = "Source"
+  )
+
+ggsave("../output/fig3a_sourcetype_by_month.png", scale = 2.5)
+
+# Figure 3b: Groups of sources mentions by quarter
+long_mentions_by_qtr %>%
+  filter(source %in% vec_all_sources) %>%
+  ggplot(aes(x = d_qtr, y = n_mentions, color = source)) +
+  geom_line(linewidth = 0.8) +
+  scale_x_continuous(breaks = vec_qtrs) +
+  labs(
+    title = "Mentions of 'teen takeovers' per quarter by source type",
+    x = "Quarter",
+    y = "Number of mentions",
+    color = "Source"
+  )
+
+ggsave("../output/fig3b_sourcetype_by_qtr.png", scale = 2.5)
 
